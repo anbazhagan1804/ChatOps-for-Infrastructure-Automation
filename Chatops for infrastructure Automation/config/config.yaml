@@ -1,0 +1,125 @@
+app:
+  name: "Infrastructure ChatOps Bot"
+  version: "1.0.0"
+  api_port: 8080
+  debug_mode: false
+
+logging:
+  level: "INFO"
+  file: "logs/chatops.log"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+
+# ChatOps Configuration File
+
+# Bot Configuration
+bot:
+  # Choose platform: "slack" or "discord"
+  platform: "slack"
+  
+  # Slack Configuration
+  slack:
+    bot_token: "xoxb-your-token-here"
+    signing_secret: "your-signing-secret"
+    app_token: "xapp-your-app-token"
+    allowed_channels:
+      - "infrastructure"
+      - "deployments"
+      - "chatops"
+  
+  # Discord Configuration
+  discord:
+    bot_token: "your-discord-bot-token"
+    command_prefix: "!"
+    allowed_channels:
+      - "infrastructure"
+      - "deployments"
+      - "chatops"
+
+# NLP Configuration
+nlp:
+  model: "en_core_web_md"  # spaCy model to use
+  confidence_threshold: 0.7  # Minimum confidence for intent recognition
+  custom_entities:
+    - name: "environment"
+      values: ["production", "staging", "development", "dev", "prod", "stage"]
+    - name: "service"
+      values: ["api", "web", "database", "cache", "auth", "users"]
+
+# Jenkins Configuration
+jenkins:
+  url: "http://jenkins.example.com"
+  username: "jenkins_api_user"
+  api_token: "your-jenkins-api-token"
+  default_job: "deploy-pipeline"
+  jobs:
+    deploy:
+      name: "deploy-app"
+      parameters:
+        - name: "ENVIRONMENT"
+          type: "string"
+        - name: "VERSION"
+          type: "string"
+    provision:
+      name: "provision-infrastructure"
+      parameters:
+        - name: "REGION"
+          type: "string"
+        - name: "INSTANCE_TYPE"
+          type: "string"
+
+# Ansible Configuration
+ansible:
+  inventory_path: "./ansible/inventory"
+  playbooks_path: "./ansible/playbooks"
+  default_playbook: "deploy.yml"
+  playbooks:
+    deploy: "deploy.yml"
+    configure: "configure.yml"
+    scale: "scale.yml"
+    backup: "backup.yml"
+
+# Terraform Configuration
+terraform:
+  working_dir: "./terraform"
+  state_path: "./terraform/state"
+  var_files:
+    production: "production.tfvars"
+    staging: "staging.tfvars"
+    development: "development.tfvars"
+  modules:
+    - name: "compute"
+      path: "./terraform/modules/compute"
+    - name: "network"
+      path: "./terraform/modules/network"
+    - name: "database"
+      path: "./terraform/modules/database"
+
+# Workflow Templates
+workflows:
+  templates_path: "./workflows/templates"
+  default_templates:
+    deploy: "deploy_workflow.yaml"
+    provision: "provision_workflow.yaml"
+    scale: "scale_workflow.yaml"
+
+# Security Settings
+security:
+  authorized_users:
+    - "U12345678"  # Slack/Discord user IDs
+    - "U87654321"
+  admin_users:
+    - "U98765432"
+  restricted_commands:
+    - "production"
+    - "delete"
+    - "remove"
+  approval_required:
+    - "deploy to production"
+    - "scale down production"
+
+# Logging Configuration
+logging:
+  level: "INFO"  # DEBUG, INFO, WARNING, ERROR, CRITICAL
+  file: "./logs/chatops.log"
+  max_size_mb: 10
+  backup_count: 5

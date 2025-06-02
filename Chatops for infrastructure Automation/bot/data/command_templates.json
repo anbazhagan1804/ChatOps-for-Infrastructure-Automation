@@ -1,0 +1,140 @@
+{
+  "version": "1.0",
+  "templates": [
+    {
+      "intent": "deploy",
+      "command": {
+        "action": "deploy",
+        "parameters": {
+          "service": "{service}",
+          "environment": "{environment}",
+          "version": "{version}"
+        },
+        "workflow": "deploy_workflow"
+      },
+      "help": "Deploy a service to an environment\n\nParameters:\n  - service: The service to deploy (required)\n  - environment: The environment to deploy to (default: development)\n  - version: The version to deploy (default: latest)",
+      "examples": [
+        "deploy api to production",
+        "deploy web-app version 1.2.3 to staging",
+        "release auth-service to dev",
+        "update backend in production to v2.0.0"
+      ]
+    },
+    {
+      "intent": "provision",
+      "command": {
+        "action": "provision",
+        "parameters": {
+          "resource": "{resource}",
+          "environment": "{environment}",
+          "count": "{count}",
+          "region": "{region}"
+        },
+        "workflow": "provision_workflow"
+      },
+      "help": "Provision infrastructure resources\n\nParameters:\n  - resource: The type of resource to provision (required)\n  - environment: The environment to provision in (default: development)\n  - count: The number of resources to provision (default: 1)\n  - region: The region to provision in (default: us-east-1)",
+      "examples": [
+        "provision 3 web-servers in production",
+        "create database in staging",
+        "add 2 load-balancers to development",
+        "set up 5 ec2-instances in production us-west-2"
+      ]
+    },
+    {
+      "intent": "scale",
+      "command": {
+        "action": "scale",
+        "parameters": {
+          "resource": "{resource}",
+          "direction": "{direction}",
+          "environment": "{environment}",
+          "count": "{count}"
+        },
+        "workflow": "scale_workflow"
+      },
+      "help": "Scale infrastructure resources up or down\n\nParameters:\n  - resource: The type of resource to scale (required)\n  - direction: The scaling direction (up/down) (default: up)\n  - environment: The environment to scale in (default: development)\n  - count: The number of resources to add/remove (default: 1)",
+      "examples": [
+        "scale web-server up in production",
+        "scale database down by 2 in staging",
+        "scale up workers in development",
+        "add 3 more nodes to production",
+        "remove 2 replicas from staging"
+      ]
+    },
+    {
+      "intent": "status",
+      "command": {
+        "action": "status",
+        "parameters": {
+          "resource": "{resource}",
+          "environment": "{environment}",
+          "detailed": "{detailed}"
+        },
+        "workflow": "status_workflow"
+      },
+      "help": "Check status of infrastructure resources\n\nParameters:\n  - resource: The resource to check status for (if not specified, checks all)\n  - environment: The environment to check (default: development)\n  - detailed: Whether to show detailed information (default: false)",
+      "examples": [
+        "check status of web-server in production",
+        "get status of staging",
+        "how is database doing in development",
+        "show me api status in production"
+      ]
+    },
+    {
+      "intent": "rollback",
+      "command": {
+        "action": "rollback",
+        "parameters": {
+          "service": "{service}",
+          "environment": "{environment}",
+          "version": "{version}"
+        },
+        "workflow": "rollback_workflow"
+      },
+      "help": "Rollback a service to a previous version\n\nParameters:\n  - service: The service to rollback (required)\n  - environment: The environment to rollback in (default: development)\n  - version: The version to rollback to (if not specified, rolls back to previous version)",
+      "examples": [
+        "rollback api in production",
+        "rollback web-app in staging to v1.2.3",
+        "revert backend in development",
+        "undo deployment of auth-service in production"
+      ]
+    },
+    {
+      "intent": "destroy",
+      "command": {
+        "action": "destroy",
+        "parameters": {
+          "resource": "{resource}",
+          "environment": "{environment}",
+          "confirm": "{confirm}"
+        },
+        "workflow": "destroy_workflow"
+      },
+      "help": "Destroy infrastructure resources\n\nParameters:\n  - resource: The resource to destroy (required)\n  - environment: The environment to destroy from (default: development)\n  - confirm: Confirmation for destructive action (default: false)",
+      "examples": [
+        "destroy web-server in development",
+        "tear down database in staging",
+        "remove load-balancer from production",
+        "delete ec2-instance in development"
+      ]
+    },
+    {
+      "intent": "help",
+      "command": {
+        "action": "help",
+        "parameters": {
+          "action": "{action}"
+        },
+        "workflow": "help_workflow"
+      },
+      "help": "Show help information\n\nParameters:\n  - action: The specific action to get help with (if not specified, shows general help)",
+      "examples": [
+        "help",
+        "show commands",
+        "what can you do",
+        "how do I deploy",
+        "help with scaling"
+      ]
+    }
+  ]
+}

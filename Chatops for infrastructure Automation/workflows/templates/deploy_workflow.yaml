@@ -1,0 +1,86 @@
+# Deploy Workflow Template
+name: Deploy Application
+description: Deploy an application to the specified environment
+
+# Parameters:
+# - service: The service to deploy (required)
+# - environment: The environment to deploy to (default: development)
+# - version: The version to deploy (default: latest)
+
+steps:
+  - name: Validate Deployment Parameters
+    type: condition
+    condition:
+      type: parameter
+      parameter: service
+      operator: ne
+      value: ""
+    then:
+      - name: Log Validation Success
+        type: notification
+        parameters:
+          message: "Validation successful. Deploying ${service} to ${environment}"
+    else:
+      - name: Log Validation Failure
+        type: notification
+        parameters:
+          message: "Validation failed. Service name is required."
+          level: error
+
+  - name: Provision Infrastructure
+    type: terraform
+    parameters:
+      action: apply
+      workspace: "${environment}"
+      var_file: "${environment}.tfvars"
+      vars:
+        service_name: "${service}"
+        version: "${version}"
+
+  - name: Configure Servers
+    type: ansible
+    parameters:
+      playbook: deploy
+      inventory: "${environment}"
+      extra_vars:
+        service_name: "${service}"
+        version: "${version}"
+        environment: "${environment}"
+
+  - name: Trigger Deployment Pipeline
+    type: jenkins
+    parameters:
+      job: deploy-app
+      wait: true
+      parameters:
+        SERVICE: "${service}"
+        ENVIRONMENT: "${environment}"
+        VERSION: "${version}"
+
+  - name: Verify Deployment
+    type: condition
+    condition:
+      type: result
+      step: 4  # Check result of Jenkins job
+    then:
+      - name: Run Health Checks
+        type: ansible
+        parameters:
+          playbook: health-check
+          inventory: "${environment}"
+          extra_vars:
+            service_name: "${service}"
+            environment: "${environment}"
+    else:
+      - name: Send Failure Notification
+        type: notification
+        parameters:
+          message: "Deployment of ${service} to ${environment} failed. Check Jenkins logs for details."
+          level: error
+          channel: "alerts"
+
+  - name: Send Success Notification
+    type: notification
+    parameters:
+      message: "Successfully deployed ${service} version ${version} to ${environment}"
+      channel: "deployments"

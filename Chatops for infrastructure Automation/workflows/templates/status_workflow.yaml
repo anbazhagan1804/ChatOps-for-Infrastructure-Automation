@@ -1,0 +1,146 @@
+# Status Workflow Template
+name: Check Infrastructure Status
+description: Check the status of infrastructure resources
+
+# Parameters:
+# - resource: The resource type to check (optional, checks all if not specified)
+# - environment: The environment to check (default: development)
+# - detailed: Whether to show detailed information (default: false)
+
+steps:
+  - name: Determine Scope
+    type: condition
+    condition:
+      type: parameter
+      parameter: resource
+      operator: ne
+      value: ""
+    then:
+      - name: Log Specific Resource Check
+        type: notification
+        parameters:
+          message: "Checking status of ${resource} in ${environment}"
+    else:
+      - name: Log All Resources Check
+        type: notification
+        parameters:
+          message: "Checking status of all resources in ${environment}"
+
+  - name: Get Terraform State
+    type: terraform
+    parameters:
+      action: state
+      workspace: "${environment}"
+      resource: "${resource}"
+
+  - name: Get Resource Inventory
+    type: ansible
+    parameters:
+      action: inventory
+      inventory: "${environment}"
+      pattern: "${resource}*"
+
+  - name: Check Service Status
+    type: ansible
+    parameters:
+      playbook: check-status
+      inventory: "${environment}"
+      extra_vars:
+        resource_type: "${resource}"
+        environment: "${environment}"
+        detailed: "${detailed}"
+
+  - name: Get Jenkins Job Status
+    type: jenkins
+    parameters:
+      action: job_status
+      job_pattern: "*${resource}*"
+      environment: "${environment}"
+      limit: 5
+
+  - name: Format Status Report
+    type: script
+    parameters:
+      language: python
+      script: |
+        terraform_state = inputs['step_2_output']
+        ansible_inventory = inputs['step_3_output']
+        service_status = inputs['step_4_output']
+        jenkins_status = inputs['step_5_output']
+        detailed = inputs['detailed'].lower() == 'true'
+        
+        report = {
+            "environment": inputs['environment'],
+            "resource": inputs['resource'] if inputs['resource'] else "all",
+            "timestamp": "{{current_time}}",
+            "infrastructure": terraform_state,
+            "inventory": ansible_inventory,
+            "services": service_status,
+            "recent_jobs": jenkins_status
+        }
+        
+        if not detailed:
+            # Simplify the report for non-detailed view
+            simplified = {
+                "environment": report["environment"],
+                "resource": report["resource"],
+                "timestamp": report["timestamp"],
+                "summary": {
+                    "infrastructure_count": len(terraform_state),
+                    "service_health": "healthy" if all(s.get("status") == "running" for s in service_status) else "issues",
+                    "recent_job_status": "passing" if all(j.get("result") == "SUCCESS" for j in jenkins_status) else "issues"
+                }
+            }
+            return {"report": simplified}
+        
+        return {"report": report}
+
+  - name: Generate Status Message
+    type: script
+    parameters:
+      language: python
+      script: |
+        report = inputs['step_6_output']['report']
+        detailed = inputs['detailed'].lower() == 'true'
+        resource = inputs['resource'] if inputs['resource'] else "all resources"
+        env = inputs['environment']
+        
+        if detailed:
+            # Format detailed message
+            message = f"Status report for {resource} in {env} environment:\n\n"
+            
+            # Infrastructure details
+            message += "**Infrastructure:**\n"
+            for item in report.get("infrastructure", []):
+                message += f"- {item.get('name')}: {item.get('status')}\n"
+            
+            # Service details
+            message += "\n**Services:**\n"
+            for service in report.get("services", []):
+                message += f"- {service.get('name')}: {service.get('status')}\n"
+                if service.get('metrics'):
+                    message += f"  CPU: {service.get('metrics', {}).get('cpu', 'N/A')}%, "
+                    message += f"Memory: {service.get('metrics', {}).get('memory', 'N/A')}%\n"
+            
+            # Recent jobs
+            message += "\n**Recent Jobs:**\n"
+            for job in report.get("recent_jobs", [])[:5]:
+                message += f"- {job.get('name')}: {job.get('result')} ({job.get('timestamp')})\n"
+        else:
+            # Format simple message
+            summary = report.get("summary", {})
+            status = "Healthy" if summary.get("service_health") == "healthy" else "Issues Detected"
+            message = f"Status of {resource} in {env}: **{status}**\n\n"
+            message += f"- Infrastructure Resources: {summary.get('infrastructure_count', 'N/A')}\n"
+            message += f"- Service Health: {summary.get('service_health', 'N/A')}\n"
+            message += f"- Recent Jobs: {summary.get('recent_job_status', 'N/A')}\n"
+            message += "\nFor detailed information, run with detailed=true"
+        
+        return {"message": message}
+
+  - name: Send Status Report
+    type: notification
+    parameters:
+      message: "${step_7_output.message}"
+      channel: "monitoring"
+      format: markdown

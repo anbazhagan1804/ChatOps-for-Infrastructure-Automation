@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChatOps Web Interface</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f4f4f4;
+            color: #333;
+        }
+        .container {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            max-width: 800px;
+            margin: auto;
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        label {
+            display: block;
+            margin-top: 10px;
+            font-weight: bold;
+        }
+        input[type="text"], textarea {
+            width: calc(100% - 22px);
+            padding: 10px;
+            margin-top: 5px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #5cb85c;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-top: 15px;
+        }
+        button:hover {
+            background-color: #4cae4c;
+        }
+        #responseArea, #statusArea {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #e9e9e9;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            white-space: pre-wrap; /* Preserve formatting */
+            word-wrap: break-word;
+        }
+        .error {
+            color: red;
+            font-weight: bold;
+        }
+        .success {
+            color: green;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>ChatOps Web Interface</h1>
+
+        <div>
+            <label for="commandInput">Enter Command:</label>
+            <input type="text" id="commandInput" placeholder="e.g., deploy api to production">
+            <button onclick="sendCommand()">Send Command</button>
+        </div>
+        <div id="responseArea">
+            <p>Response will appear here...</p>
+        </div>
+
+        <hr style="margin: 30px 0;">
+
+        <div>
+            <label for="workflowIdInput">Enter Workflow ID:</label>
+            <input type="text" id="workflowIdInput" placeholder="e.g., sample-workflow-123">
+            <button onclick="getWorkflowStatus()">Get Workflow Status</button>
+        </div>
+        <div id="statusArea">
+            <p>Workflow status will appear here...</p>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:8080'; // Adjust if your API is elsewhere
+
+        async function sendCommand() {
+            const commandInput = document.getElementById('commandInput');
+            const responseArea = document.getElementById('responseArea');
+            const command = commandInput.value.trim();
+
+            if (!command) {
+                responseArea.innerHTML = '<p class="error">Please enter a command.</p>';
+                return;
+            }
+
+            responseArea.innerHTML = '<p>Processing...</p>';
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/command`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ 
+                        command: command,
+                        user_id: 'web_user',
+                        channel_id: 'web_interface'
+                     }),
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    responseArea.innerHTML = `<p class="success"><strong>Status:</strong> ${data.status}</p><p><strong>Response:</strong></p><pre>${JSON.stringify(data.response_text || data, null, 2)}</pre>`;
+                } else {
+                    responseArea.innerHTML = `<p class="error"><strong>Error ${response.status}:</strong> ${data.detail || 'Failed to execute command'}</p><pre>${JSON.stringify(data, null, 2)}</pre>`;
+                }
+            } catch (error) {
+                console.error('Error sending command:', error);
+                responseArea.innerHTML = `<p class="error">An error occurred: ${error.message}</p>`;
+            }
+        }
+
+        async function getWorkflowStatus() {
+            const workflowIdInput = document.getElementById('workflowIdInput');
+            const statusArea = document.getElementById('statusArea');
+            const workflowId = workflowIdInput.value.trim();
+
+            if (!workflowId) {
+                statusArea.innerHTML = '<p class="error">Please enter a Workflow ID.</p>';
+                return;
+            }
+
+            statusArea.innerHTML = '<p>Fetching status...</p>';
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/workflow/${workflowId}/status`, {
+                    method: 'GET',
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    statusArea.innerHTML = `<p class="success"><strong>Workflow ID:</strong> ${data.workflow_id}</p>
+                                          <p><strong>Status:</strong> ${data.status}</p>
+                                          <p><strong>Details:</strong></p>
+                                          <pre>${JSON.stringify(data.details, null, 2)}</pre>`;
+                } else {
+                    statusArea.innerHTML = `<p class="error"><strong>Error ${response.status}:</strong> ${data.detail || 'Failed to get workflow status'}</p><pre>${JSON.stringify(data, null, 2)}</pre>`;
+                }
+            } catch (error) {
+                console.error('Error getting workflow status:', error);
+                statusArea.innerHTML = `<p class="error">An error occurred: ${error.message}</p>`;
+            }
+        }
+    </script>
+</body>
+</html>

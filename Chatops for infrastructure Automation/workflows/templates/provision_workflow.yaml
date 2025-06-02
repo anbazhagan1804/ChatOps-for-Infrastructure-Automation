@@ -1,0 +1,118 @@
+# Provision Workflow Template
+name: Provision Infrastructure
+description: Provision new infrastructure resources
+
+# Parameters:
+# - resource: The resource type to provision (required)
+# - environment: The environment to provision in (default: development)
+# - count: The number of resources to provision (default: 1)
+# - region: The region to provision in (default: us-east-1)
+
+steps:
+  - name: Validate Provision Parameters
+    type: condition
+    condition:
+      type: parameter
+      parameter: resource
+      operator: ne
+      value: ""
+    then:
+      - name: Log Validation Success
+        type: notification
+        parameters:
+          message: "Validation successful. Provisioning ${count} ${resource}(s) in ${environment} (${region})"
+    else:
+      - name: Log Validation Failure
+        type: notification
+        parameters:
+          message: "Validation failed. Resource type is required."
+          level: error
+
+  - name: Initialize Terraform
+    type: terraform
+    parameters:
+      action: init
+      workspace: "${environment}"
+
+  - name: Create Terraform Plan
+    type: terraform
+    parameters:
+      action: plan
+      workspace: "${environment}"
+      var_file: "${environment}.tfvars"
+      vars:
+        resource_type: "${resource}"
+        resource_count: "${count}"
+        region: "${region}"
+
+  - name: Apply Terraform Changes
+    type: terraform
+    parameters:
+      action: apply
+      workspace: "${environment}"
+      var_file: "${environment}.tfvars"
+      vars:
+        resource_type: "${resource}"
+        resource_count: "${count}"
+        region: "${region}"
+
+  - name: Get Terraform Outputs
+    type: terraform
+    parameters:
+      action: output
+      workspace: "${environment}"
+
+  - name: Update Inventory
+    type: ansible
+    parameters:
+      playbook: update-inventory
+      extra_vars:
+        environment: "${environment}"
+        resource_type: "${resource}"
+
+  - name: Configure New Resources
+    type: ansible
+    parameters:
+      playbook: configure
+      inventory: "${environment}"
+      extra_vars:
+        resource_type: "${resource}"
+        environment: "${environment}"
+
+  - name: Trigger Jenkins Configuration Job
+    type: jenkins
+    parameters:
+      job: configure-infrastructure
+      wait: true
+      parameters:
+        RESOURCE_TYPE: "${resource}"
+        ENVIRONMENT: "${environment}"
+        REGION: "${region}"
+
+  - name: Verify Resources
+    type: condition
+    condition:
+      type: result
+      step: 8  # Check result of Jenkins job
+    then:
+      - name: Run Validation Tests
+        type: ansible
+        parameters:
+          playbook: validate-resources
+          inventory: "${environment}"
+          extra_vars:
+            resource_type: "${resource}"
+            environment: "${environment}"
+    else:
+      - name: Send Failure Notification
+        type: notification
+        parameters:
+          message: "Configuration of ${resource} in ${environment} failed. Check Jenkins logs for details."
+          level: error
+          channel: "alerts"
+
+  - name: Send Success Notification
+    type: notification
+    parameters:
+      message: "Successfully provisioned ${count} ${resource}(s) in ${environment} (${region})"
+      channel: "infrastructure"

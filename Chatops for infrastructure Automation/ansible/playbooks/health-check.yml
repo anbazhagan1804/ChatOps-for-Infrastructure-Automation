@@ -1,0 +1,209 @@
+---
+# Health Check Playbook
+# This playbook performs health checks on the specified service and environment
+
+- name: Perform Health Checks
+  hosts: "{{ environment }}"
+  become: yes
+  gather_facts: yes
+  vars:
+    service_name: "{{ service_name | default('app') }}"
+    environment: "{{ environment | default('development') }}"
+    check_timeout: 5
+    max_cpu_percent: 90
+    max_memory_percent: 90
+    min_disk_percent_free: 20
+    service_ports:
+      app: 8080
+      web: 80
+      api: 8000
+      db: 5432
+    check_endpoints:
+      app: "/health"
+      web: "/"
+      api: "/api/health"
+
+  pre_tasks:
+    - name: Validate required variables
+      fail:
+        msg: "service_name and environment are required variables"
+      when: service_name is not defined or environment is not defined
+
+  tasks:
+    - name: Check if service is running
+      systemd:
+        name: "{{ service_name }}"
+      register: service_status
+      ignore_errors: yes
+
+    - name: Get service process information
+      shell: "ps aux | grep {{ service_name }} | grep -v grep || true"
+      register: process_info
+      changed_when: false
+      ignore_errors: yes
+
+    - name: Check service port
+      wait_for:
+        port: "{{ service_ports[service_name] | default(8080) }}"
+        timeout: "{{ check_timeout }}"
+        state: started
+      register: port_check
+      ignore_errors: yes
+
+    - name: Check service endpoint
+      uri:
+        url: "http://localhost:{{ service_ports[service_name] | default(8080) }}{{ check_endpoints[service_name] | default('/health') }}"
+        method: GET
+        status_code: 200
+        timeout: "{{ check_timeout }}"
+        return_content: yes
+      register: endpoint_check
+      ignore_errors: yes
+      when: port_check is success
+
+    - name: Check system resources
+      block:
+        - name: Check CPU usage
+          shell: "top -bn1 | grep 'Cpu(s)' | awk '{print $2 + $4}'"
+          register: cpu_usage
+          changed_when: false
+
+        - name: Check memory usage
+          shell: "free | grep Mem | awk '{print $3/$2 * 100.0}'"
+          register: memory_usage
+          changed_when: false
+
+        - name: Check disk usage
+          shell: "df -h / | tail -n 1 | awk '{print 100.0 - $5}'"
+          register: disk_free
+          changed_when: false
+
+        - name: Set resource status
+          set_fact:
+            cpu_status: "{{ (cpu_usage.stdout | float) < max_cpu_percent }}"
+            memory_status: "{{ (memory_usage.stdout | float) < max_memory_percent }}"
+            disk_status: "{{ (disk_free.stdout | float) > min_disk_percent_free }}"
+      ignore_errors: yes
+
+    - name: Check log for errors
+      shell: "grep -i 'error\|exception\|fail' /var/log/{{ service_name }}/*.log | tail -n 10 || true"
+      register: log_errors
+      changed_when: false
+      ignore_errors: yes
+
+    - name: Check recent deployments
+      stat:
+        path: "/var/backups/{{ service_name }}"
+      register: backup_dir
+      ignore_errors: yes
+
+    - name: Get recent deployment info
+      shell: "ls -lt /var/backups/{{ service_name }}/ | head -n 2 | tail -n 1 || true"
+      register: recent_deployment
+      changed_when: false
+      ignore_errors: yes
+      when: backup_dir.stat.exists
+
+    - name: Compile health check results
+      set_fact:
+        health_results:
+          service_name: "{{ service_name }}"
+          environment: "{{ environment }}"
+          timestamp: "{{ ansible_date_time.iso8601 }}"
+          hostname: "{{ ansible_hostname }}"
+          ip_address: "{{ ansible_default_ipv4.address }}"
+          service_running: "{{ service_status.status.ActiveState == 'active' if service_status.status is defined else false }}"
+          port_accessible: "{{ port_check is success }}"
+          endpoint_healthy: "{{ endpoint_check is success if port_check is success else false }}"
+          resources:
+            cpu_usage_percent: "{{ cpu_usage.stdout | float | round(2) if cpu_usage.stdout is defined else 'unknown' }}"
+            memory_usage_percent: "{{ memory_usage.stdout | float | round(2) if memory_usage.stdout is defined else 'unknown' }}"
+            disk_free_percent: "{{ disk_free.stdout | float | round(2) if disk_free.stdout is defined else 'unknown' }}"
+            cpu_status: "{{ cpu_status | default(false) }}"
+            memory_status: "{{ memory_status | default(false) }}"
+            disk_status: "{{ disk_status | default(false) }}"
+          recent_errors: "{{ log_errors.stdout_lines if log_errors.stdout_lines | length > 0 else [] }}"
+          last_deployment: "{{ recent_deployment.stdout if recent_deployment.stdout is defined and recent_deployment.stdout | length > 0 else 'unknown' }}"
+
+    - name: Determine overall health status
+      set_fact:
+        overall_status: "{{ 
+          health_results.service_running and 
+          health_results.port_accessible and 
+          health_results.endpoint_healthy and 
+          health_results.resources.cpu_status and 
+          health_results.resources.memory_status and 
+          health_results.resources.disk_status
+        }}"
+
+    - name: Add overall status to health results
+      set_fact:
+        health_results: "{{ health_results | combine({'overall_status': overall_status}) }}"
+
+    - name: Display health check results
+      debug:
+        var: health_results
+        verbosity: 0
+
+    - name: Save health check results to file
+      copy:
+        content: "{{ health_results | to_nice_json }}"
+        dest: "/tmp/{{ service_name }}_health_{{ ansible_date_time.iso8601_basic_short }}.json"
+        mode: 0644
+      changed_when: false
+
+    - name: Send health check results to monitoring system
+      uri:
+        url: "{{ lookup('env', 'MONITORING_API_URL') }}/api/v1/health-checks"
+        method: POST
+        body_format: json
+        body: "{{ health_results | to_json }}"
+        status_code: 200
+        headers:
+          Authorization: "Bearer {{ lookup('env', 'MONITORING_API_TOKEN') }}"
+      delegate_to: localhost
+      become: no
+      ignore_errors: yes
+
+  post_tasks:
+    - name: Send alert for unhealthy service
+      uri:
+        url: "{{ lookup('env', 'ALERT_WEBHOOK_URL') }}"
+        method: POST
+        body_format: json
+        body: |
+          {
+            "text": "⚠️ Health check failed for {{ service_name }} in {{ environment }} environment on {{ ansible_hostname }}",
+            "attachments": [
+              {
+                "color": "danger",
+                "fields": [
+                  {
+                    "title": "Service Status",
+                    "value": "{{ 'Running' if health_results.service_running else 'Not Running' }}",
+                    "short": true
+                  },
+                  {
+                    "title": "Endpoint Status",
+                    "value": "{{ 'Healthy' if health_results.endpoint_healthy else 'Unhealthy' }}",
+                    "short": true
+                  },
+                  {
+                    "title": "CPU Usage",
+                    "value": "{{ health_results.resources.cpu_usage_percent }}%",
+                    "short": true
+                  },
+                  {
+                    "title": "Memory Usage",
+                    "value": "{{ health_results.resources.memory_usage_percent }}%",
+                    "short": true
+                  }
+                ]
+              }
+            ]
+          }
+        status_code: 200
+      delegate_to: localhost
+      become: no
+      when: not overall_status
+      ignore_errors: yes

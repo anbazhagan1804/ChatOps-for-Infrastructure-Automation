@@ -1,0 +1,137 @@
+version: '3.8'
+
+services:
+  # ChatOps Bot Service
+  chatops-bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: chatops-bot
+    restart: unless-stopped
+    volumes:
+      - ./config:/app/config
+      - ./logs:/app/logs
+      - ~/.aws:/root/.aws:ro  # AWS credentials for Terraform
+      - ~/.ssh:/root/.ssh:ro  # SSH keys for Ansible
+    environment:
+      - CONFIG_FILE=/app/config/config.yaml  # This should align with Dockerfile and api.py logic
+      - LOG_LEVEL=INFO
+      - SLACK_BOT_TOKEN=${SLACK_BOT_TOKEN}
+      - SLACK_APP_TOKEN=${SLACK_APP_TOKEN}
+      - DISCORD_BOT_TOKEN=${DISCORD_BOT_TOKEN}
+      - JENKINS_URL=${JENKINS_URL}
+      - JENKINS_USER=${JENKINS_USER}
+      - JENKINS_API_TOKEN=${JENKINS_API_TOKEN}
+      - AWS_PROFILE=${AWS_PROFILE:-default}
+      - TZ=UTC
+    ports:
+      - "8080:8080"  # API port
+    networks:
+      - chatops-network
+    depends_on:
+      - redis
+
+  # Redis for caching and message queue
+  redis:
+    image: redis:alpine
+    container_name: chatops-redis
+    restart: unless-stopped
+    volumes:
+      - redis-data:/data
+    ports:
+      - "6379:6379"
+    networks:
+      - chatops-network
+    command: ["redis-server", "--appendonly", "yes"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # Jenkins for CI/CD pipelines
+  jenkins:
+    image: jenkins/jenkins:lts
+    container_name: chatops-jenkins
+    restart: unless-stopped
+    privileged: true
+    user: root
+    volumes:
+      - jenkins-data:/var/jenkins_home
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./jenkins/casc:/var/jenkins_home/casc_configs
+    environment:
+      - JENKINS_OPTS=--prefix=/jenkins
+      - CASC_JENKINS_CONFIG=/var/jenkins_home/casc_configs
+      - JENKINS_ADMIN_ID=${JENKINS_ADMIN_USER:-admin}
+      - JENKINS_ADMIN_PASSWORD=${JENKINS_ADMIN_PASSWORD:-admin}
+    ports:
+      - "8081:8080"
+      - "50000:50000"
+    networks:
+      - chatops-network
+
+  # Ansible AWX for Ansible management (optional)
+  awx:
+    image: ansible/awx:latest
+    container_name: chatops-awx
+    restart: unless-stopped
+    volumes:
+      - awx-data:/var/lib/awx
+      - ./ansible:/etc/ansible:ro
+    environment:
+      - SECRET_KEY=${AWX_SECRET_KEY}
+      - DATABASE_NAME=awx
+      - DATABASE_USER=awx
+      - DATABASE_PASSWORD=${AWX_DB_PASSWORD}
+      - DATABASE_HOST=awx-db
+      - DATABASE_PORT=5432
+    ports:
+      - "8082:8052"
+    networks:
+      - chatops-network
+    depends_on:
+      - awx-db
+
+  # AWX Database
+  awx-db:
+    image: postgres:13
+    container_name: chatops-awx-db
+    restart: unless-stopped
+    volumes:
+      - awx-db-data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_USER=awx
+      - POSTGRES_PASSWORD=${AWX_DB_PASSWORD}
+      - POSTGRES_DB=awx
+    networks:
+      - chatops-network
+
+  # API Gateway (optional)
+  nginx:
+    image: nginx:alpine
+    container_name: chatops-nginx
+    restart: unless-stopped
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+    ports:
+      - "80:80"
+      - "443:443"
+    networks:
+      - chatops-network
+    depends_on:
+      - chatops-bot
+      - jenkins
+      - awx
+
+networks:
+  chatops-network:
+    driver: bridge
+
+volumes:
+  redis-data:
+  jenkins-data:
+  awx-data:
+  awx-db-data:

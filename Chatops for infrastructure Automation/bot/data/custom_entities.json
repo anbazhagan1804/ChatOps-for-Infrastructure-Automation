@@ -1,0 +1,205 @@
+{
+  "version": "1.0",
+  "entities": [
+    {
+      "name": "service",
+      "description": "Application services that can be deployed",
+      "values": [
+        {
+          "value": "api",
+          "synonyms": ["api-service", "api server", "rest-api", "api gateway"]
+        },
+        {
+          "value": "web-app",
+          "synonyms": ["webapp", "web app", "website", "frontend", "ui", "web interface"]
+        },
+        {
+          "value": "auth-service",
+          "synonyms": ["auth", "authentication", "identity", "login service"]
+        },
+        {
+          "value": "database",
+          "synonyms": ["db", "data store", "postgres", "mysql", "mongo"]
+        },
+        {
+          "value": "backend",
+          "synonyms": ["back-end", "server", "application server"]
+        },
+        {
+          "value": "payment-service",
+          "synonyms": ["payments", "payment processor", "billing"]
+        },
+        {
+          "value": "notification-service",
+          "synonyms": ["notifications", "alerts", "messaging"]
+        },
+        {
+          "value": "user-service",
+          "synonyms": ["users", "user management", "accounts"]
+        },
+        {
+          "value": "search-service",
+          "synonyms": ["search", "search engine", "elasticsearch"]
+        },
+        {
+          "value": "analytics-service",
+          "synonyms": ["analytics", "metrics", "reporting", "stats"]
+        }
+      ]
+    },
+    {
+      "name": "environment",
+      "description": "Deployment environments",
+      "values": [
+        {
+          "value": "development",
+          "synonyms": ["dev", "develop", "development environment", "local"]
+        },
+        {
+          "value": "testing",
+          "synonyms": ["test", "test environment", "qa"]
+        },
+        {
+          "value": "staging",
+          "synonyms": ["stage", "pre-production", "preprod", "stage environment"]
+        },
+        {
+          "value": "production",
+          "synonyms": ["prod", "live", "production environment"]
+        },
+        {
+          "value": "sandbox",
+          "synonyms": ["demo", "playground"]
+        }
+      ]
+    },
+    {
+      "name": "resource",
+      "description": "Infrastructure resources that can be provisioned",
+      "values": [
+        {
+          "value": "web-server",
+          "synonyms": ["webserver", "web server", "http server", "nginx", "apache"]
+        },
+        {
+          "value": "database",
+          "synonyms": ["db", "database server", "rds", "postgres", "mysql", "mongodb"]
+        },
+        {
+          "value": "load-balancer",
+          "synonyms": ["lb", "elb", "alb", "loadbalancer"]
+        },
+        {
+          "value": "cache",
+          "synonyms": ["redis", "memcached", "caching server", "elasticache"]
+        },
+        {
+          "value": "ec2-instance",
+          "synonyms": ["ec2", "instance", "server", "vm", "virtual machine"]
+        },
+        {
+          "value": "kubernetes-cluster",
+          "synonyms": ["k8s", "kubernetes", "cluster", "eks"]
+        },
+        {
+          "value": "container",
+          "synonyms": ["docker", "pod", "container instance"]
+        },
+        {
+          "value": "storage",
+          "synonyms": ["s3", "bucket", "disk", "volume", "ebs"]
+        },
+        {
+          "value": "cdn",
+          "synonyms": ["content delivery network", "cloudfront"]
+        },
+        {
+          "value": "vpc",
+          "synonyms": ["network", "virtual private cloud"]
+        }
+      ]
+    },
+    {
+      "name": "region",
+      "description": "Cloud provider regions",
+      "values": [
+        {
+          "value": "us-east-1",
+          "synonyms": ["us east 1", "n. virginia", "virginia", "east us"]
+        },
+        {
+          "value": "us-east-2",
+          "synonyms": ["us east 2", "ohio", "east us 2"]
+        },
+        {
+          "value": "us-west-1",
+          "synonyms": ["us west 1", "n. california", "california", "west us"]
+        },
+        {
+          "value": "us-west-2",
+          "synonyms": ["us west 2", "oregon", "west us 2"]
+        },
+        {
+          "value": "eu-west-1",
+          "synonyms": ["eu west 1", "ireland", "west europe"]
+        },
+        {
+          "value": "eu-central-1",
+          "synonyms": ["eu central 1", "frankfurt", "germany", "central europe"]
+        },
+        {
+          "value": "ap-southeast-1",
+          "synonyms": ["ap southeast 1", "singapore", "southeast asia"]
+        },
+        {
+          "value": "ap-northeast-1",
+          "synonyms": ["ap northeast 1", "tokyo", "japan", "northeast asia"]
+        }
+      ]
+    },
+    {
+      "name": "direction",
+      "description": "Scaling directions",
+      "values": [
+        {
+          "value": "up",
+          "synonyms": ["increase", "add", "more", "higher", "grow", "expand"]
+        },
+        {
+          "value": "down",
+          "synonyms": ["decrease", "reduce", "remove", "fewer", "lower", "shrink"]
+        }
+      ]
+    },
+    {
+      "name": "action",
+      "description": "Bot actions",
+      "values": [
+        {
+          "value": "deploy",
+          "synonyms": ["deployment", "releasing", "pushing", "shipping"]
+        },
+        {
+          "value": "provision",
+          "synonyms": ["provisioning", "creating", "setting up", "adding"]
+        },
+        {
+          "value": "scale",
+          "synonyms": ["scaling", "resizing", "growing", "shrinking"]
+        },
+        {
+          "value": "status",
+          "synonyms": ["health", "monitoring", "checking"]
+        },
+        {
+          "value": "rollback",
+          "synonyms": ["reverting", "undoing", "going back"]
+        },
+        {
+          "value": "destroy",
+          "synonyms": ["removing", "deleting", "tearing down"]
+        }
+      ]
+    }
+  ]
+}

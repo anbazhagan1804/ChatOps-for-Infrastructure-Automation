@@ -1,0 +1,126 @@
+# Scale Workflow Template
+name: Scale Infrastructure
+description: Scale infrastructure resources up or down
+
+# Parameters:
+# - resource: The resource type to scale (required)
+# - environment: The environment to scale in (default: development)
+# - direction: The scaling direction (up/down) (default: up)
+# - count: The number of resources to add/remove (default: 1)
+
+steps:
+  - name: Validate Scale Parameters
+    type: condition
+    condition:
+      type: parameter
+      parameter: resource
+      operator: ne
+      value: ""
+    then:
+      - name: Log Validation Success
+        type: notification
+        parameters:
+          message: "Validation successful. Scaling ${resource} ${direction} by ${count} in ${environment}"
+    else:
+      - name: Log Validation Failure
+        type: notification
+        parameters:
+          message: "Validation failed. Resource type is required."
+          level: error
+
+  - name: Get Current Resource Count
+    type: terraform
+    parameters:
+      action: output
+      workspace: "${environment}"
+      output_name: "${resource}_count"
+
+  - name: Calculate New Count
+    type: script
+    parameters:
+      language: python
+      script: |
+        current_count = int(inputs['step_2_output'])
+        direction = inputs['direction']
+        change = int(inputs['count'])
+        
+        if direction == 'up':
+            new_count = current_count + change
+        else:
+            new_count = max(0, current_count - change)
+            
+        return {"new_count": new_count}
+
+  - name: Update Terraform Variables
+    type: terraform
+    parameters:
+      action: plan
+      workspace: "${environment}"
+      var_file: "${environment}.tfvars"
+      vars:
+        resource_type: "${resource}"
+        resource_count: "${step_3_output.new_count}"
+
+  - name: Apply Terraform Changes
+    type: terraform
+    parameters:
+      action: apply
+      workspace: "${environment}"
+      var_file: "${environment}.tfvars"
+      vars:
+        resource_type: "${resource}"
+        resource_count: "${step_3_output.new_count}"
+
+  - name: Update Inventory
+    type: ansible
+    parameters:
+      playbook: update-inventory
+      extra_vars:
+        environment: "${environment}"
+        resource_type: "${resource}"
+
+  - name: Configure Resources
+    type: ansible
+    parameters:
+      playbook: configure
+      inventory: "${environment}"
+      extra_vars:
+        resource_type: "${resource}"
+        environment: "${environment}"
+
+  - name: Trigger Load Balancer Update
+    type: jenkins
+    parameters:
+      job: update-load-balancer
+      wait: true
+      parameters:
+        RESOURCE_TYPE: "${resource}"
+        ENVIRONMENT: "${environment}"
+
+  - name: Verify Scaling
+    type: condition
+    condition:
+      type: result
+      step: 8  # Check result of Jenkins job
+    then:
+      - name: Run Health Checks
+        type: ansible
+        parameters:
+          playbook: health-check
+          inventory: "${environment}"
+          extra_vars:
+            resource_type: "${resource}"
+            environment: "${environment}"
+    else:
+      - name: Send Failure Notification
+        type: notification
+        parameters:
+          message: "Scaling of ${resource} in ${environment} failed. Check Jenkins logs for details."
+          level: error
+          channel: "alerts"
+
+  - name: Send Success Notification
+    type: notification
+    parameters:
+      message: "Successfully scaled ${resource} ${direction} by ${count} in ${environment}. New count: ${step_3_output.new_count}"
+      channel: "infrastructure"

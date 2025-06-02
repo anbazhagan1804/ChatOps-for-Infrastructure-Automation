@@ -1,0 +1,289 @@
+{
+  "version": "1.0",
+  "patterns": [
+    {
+      "intent": "deploy",
+      "patterns": [
+        "deploy {service} to {environment}",
+        "deploy {service} version {version} to {environment}",
+        "release {service} to {environment}",
+        "push {service} to {environment}",
+        "roll out {service} to {environment}",
+        "update {service} in {environment} to {version}"
+      ],
+      "entities": [
+        {
+          "name": "service",
+          "required": true,
+          "description": "The service to deploy",
+          "examples": ["api", "web-app", "backend", "frontend", "auth-service"]
+        },
+        {
+          "name": "environment",
+          "required": true,
+          "description": "The environment to deploy to",
+          "default": "development",
+          "examples": ["development", "staging", "production", "dev", "stage", "prod"]
+        },
+        {
+          "name": "version",
+          "required": false,
+          "description": "The version to deploy",
+          "default": "latest",
+          "examples": ["1.0.0", "v2.3.1", "latest", "stable"]
+        }
+      ],
+      "examples": [
+        "deploy api to production",
+        "deploy web-app version 1.2.3 to staging",
+        "release auth-service to dev",
+        "update backend in production to v2.0.0"
+      ]
+    },
+    {
+      "intent": "provision",
+      "patterns": [
+        "provision {count} {resource} in {environment}",
+        "create {count} {resource} in {environment}",
+        "add {count} {resource} to {environment}",
+        "set up {count} {resource} in {environment} {region}",
+        "provision {resource} in {environment}",
+        "create new {resource} in {environment}"
+      ],
+      "entities": [
+        {
+          "name": "resource",
+          "required": true,
+          "description": "The type of resource to provision",
+          "examples": ["web-server", "database", "load-balancer", "cache", "ec2-instance"]
+        },
+        {
+          "name": "environment",
+          "required": true,
+          "description": "The environment to provision in",
+          "default": "development",
+          "examples": ["development", "staging", "production", "dev", "stage", "prod"]
+        },
+        {
+          "name": "count",
+          "required": false,
+          "description": "The number of resources to provision",
+          "default": "1",
+          "examples": ["1", "2", "3", "5", "10"]
+        },
+        {
+          "name": "region",
+          "required": false,
+          "description": "The region to provision in",
+          "default": "us-east-1",
+          "examples": ["us-east-1", "us-west-2", "eu-west-1", "ap-southeast-1"]
+        }
+      ],
+      "examples": [
+        "provision 3 web-servers in production",
+        "create database in staging",
+        "add 2 load-balancers to development",
+        "set up 5 ec2-instances in production us-west-2"
+      ]
+    },
+    {
+      "intent": "scale",
+      "patterns": [
+        "scale {resource} {direction} in {environment}",
+        "scale {resource} {direction} by {count} in {environment}",
+        "scale {direction} {resource} in {environment}",
+        "add {count} more {resource} to {environment}",
+        "remove {count} {resource} from {environment}",
+        "increase {resource} in {environment} by {count}",
+        "decrease {resource} in {environment} by {count}"
+      ],
+      "entities": [
+        {
+          "name": "resource",
+          "required": true,
+          "description": "The type of resource to scale",
+          "examples": ["web-server", "database", "worker", "node", "replica"]
+        },
+        {
+          "name": "direction",
+          "required": true,
+          "description": "The scaling direction (up/down)",
+          "default": "up",
+          "examples": ["up", "down", "in", "out"]
+        },
+        {
+          "name": "environment",
+          "required": true,
+          "description": "The environment to scale in",
+          "default": "development",
+          "examples": ["development", "staging", "production", "dev", "stage", "prod"]
+        },
+        {
+          "name": "count",
+          "required": false,
+          "description": "The number of resources to add/remove",
+          "default": "1",
+          "examples": ["1", "2", "3", "5", "10"]
+        }
+      ],
+      "examples": [
+        "scale web-server up in production",
+        "scale database down by 2 in staging",
+        "scale up workers in development",
+        "add 3 more nodes to production",
+        "remove 2 replicas from staging",
+        "increase web-servers in production by 5",
+        "decrease workers in development by 2"
+      ]
+    },
+    {
+      "intent": "status",
+      "patterns": [
+        "check status of {resource} in {environment}",
+        "get status of {environment}",
+        "how is {resource} doing in {environment}",
+        "show me {resource} status in {environment}",
+        "status of {resource} in {environment}",
+        "health check for {resource} in {environment}",
+        "is {resource} healthy in {environment}"
+      ],
+      "entities": [
+        {
+          "name": "resource",
+          "required": false,
+          "description": "The resource to check status for (if not specified, checks all)",
+          "examples": ["web-server", "database", "api", "frontend", "backend", "all-services"]
+        },
+        {
+          "name": "environment",
+          "required": true,
+          "description": "The environment to check",
+          "default": "development",
+          "examples": ["development", "staging", "production", "dev", "stage", "prod"]
+        },
+        {
+          "name": "detailed",
+          "required": false,
+          "description": "Whether to show detailed information",
+          "default": "false",
+          "examples": ["true", "false", "yes", "no", "detailed", "simple"]
+        }
+      ],
+      "examples": [
+        "check status of web-server in production",
+        "get status of staging",
+        "how is database doing in development",
+        "show me api status in production",
+        "status of all-services in staging",
+        "health check for frontend in production",
+        "is backend healthy in development"
+      ]
+    },
+    {
+      "intent": "help",
+      "patterns": [
+        "help",
+        "help me",
+        "show commands",
+        "what can you do",
+        "list commands",
+        "how do I {action}",
+        "help with {action}",
+        "how to use {action}"
+      ],
+      "entities": [
+        {
+          "name": "action",
+          "required": false,
+          "description": "The specific action to get help with",
+          "examples": ["deploy", "provision", "scale", "status"]
+        }
+      ],
+      "examples": [
+        "help",
+        "show commands",
+        "what can you do",
+        "how do I deploy",
+        "help with scaling",
+        "how to use status command"
+      ]
+    },
+    {
+      "intent": "rollback",
+      "patterns": [
+        "rollback {service} in {environment}",
+        "rollback {service} in {environment} to {version}",
+        "revert {service} in {environment}",
+        "undo deployment of {service} in {environment}",
+        "go back to previous version of {service} in {environment}"
+      ],
+      "entities": [
+        {
+          "name": "service",
+          "required": true,
+          "description": "The service to rollback",
+          "examples": ["api", "web-app", "backend", "frontend", "auth-service"]
+        },
+        {
+          "name": "environment",
+          "required": true,
+          "description": "The environment to rollback in",
+          "default": "development",
+          "examples": ["development", "staging", "production", "dev", "stage", "prod"]
+        },
+        {
+          "name": "version",
+          "required": false,
+          "description": "The version to rollback to (if not specified, rolls back to previous version)",
+          "examples": ["1.0.0", "v2.3.1", "previous", "last-stable"]
+        }
+      ],
+      "examples": [
+        "rollback api in production",
+        "rollback web-app in staging to v1.2.3",
+        "revert backend in development",
+        "undo deployment of auth-service in production",
+        "go back to previous version of frontend in staging"
+      ]
+    },
+    {
+      "intent": "destroy",
+      "patterns": [
+        "destroy {resource} in {environment}",
+        "tear down {resource} in {environment}",
+        "remove {resource} from {environment}",
+        "delete {resource} in {environment}",
+        "decommission {resource} in {environment}"
+      ],
+      "entities": [
+        {
+          "name": "resource",
+          "required": true,
+          "description": "The resource to destroy",
+          "examples": ["web-server", "database", "load-balancer", "cache", "ec2-instance"]
+        },
+        {
+          "name": "environment",
+          "required": true,
+          "description": "The environment to destroy from",
+          "default": "development",
+          "examples": ["development", "staging", "production", "dev", "stage", "prod"]
+        },
+        {
+          "name": "confirm",
+          "required": false,
+          "description": "Confirmation for destructive action",
+          "default": "false",
+          "examples": ["true", "false", "yes", "no", "confirmed"]
+        }
+      ],
+      "examples": [
+        "destroy web-server in development",
+        "tear down database in staging",
+        "remove load-balancer from production",
+        "delete ec2-instance in development",
+        "decommission cache in staging"
+      ]
+    }
+  ]
+}

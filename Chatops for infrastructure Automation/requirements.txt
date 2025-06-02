@@ -1,0 +1,43 @@
+# Bot Framework
+slack-sdk==3.21.3
+discord.py==2.2.3
+python-dotenv==1.0.0
+
+# NLP Processing
+spacy==3.5.3
+transformers==4.28.1
+torch==2.0.1
+nltk==3.8.1
+python-Levenshtein==0.22.0
+fuzzywuzzy==0.18.0
+
+# Infrastructure Tools Integration
+pyterrascript==0.1.0  # Terraform wrapper
+ansible-runner==2.3.1  # Ansible API
+python-terraform==0.10.1  # Alternative Terraform wrapper
+python-jenkins==1.7.0
+jenkins-api==0.3.2    # Jenkins API client
+boto3==1.28.62        # AWS SDK
+
+# Utilities
+pyyaml==6.0
+requests==2.31.0
+jinja2==3.1.2
+fastapi==0.95.2
+uvicorn==0.22.0
+pydantic==1.10.8
+redis==5.0.1          # For caching and message queue
+rq==1.15.1            # Redis Queue for background jobs
+loguru==0.7.2         # Better logging
+
+# Testing
+pytest==7.3.1
+pytest-mock==3.10.0
+pytest-cov==4.1.0
+
+# Development tools
+black==23.9.1
+isort==5.12.0
+mypy==1.5.1
+flake8==6.1.0
+pre-commit==3.4.0

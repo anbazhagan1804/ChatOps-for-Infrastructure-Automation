@@ -1,0 +1,186 @@
+---
+# Deploy Application Playbook
+# This playbook deploys an application to the specified environment
+
+- name: Deploy Application
+  hosts: "{{ environment }}"
+  become: yes
+  vars:
+    service_name: "{{ service_name | default('app') }}"
+    version: "{{ version | default('latest') }}"
+    environment: "{{ environment | default('development') }}"
+    app_user: "{{ app_user | default('app') }}"
+    app_group: "{{ app_group | default('app') }}"
+    app_base_dir: "/opt/{{ service_name }}"
+    app_config_dir: "/etc/{{ service_name }}"
+    app_log_dir: "/var/log/{{ service_name }}"
+    app_data_dir: "/var/lib/{{ service_name }}"
+    app_temp_dir: "/tmp/{{ service_name }}_deploy"
+    app_backup_dir: "/var/backups/{{ service_name }}"
+    app_service_name: "{{ service_name }}"
+    app_port: 8080
+    health_check_url: "http://localhost:{{ app_port }}/health"
+    health_check_retries: 5
+    health_check_delay: 10
+
+  pre_tasks:
+    - name: Validate required variables
+      fail:
+        msg: "service_name and environment are required variables"
+      when: service_name is not defined or environment is not defined
+
+    - name: Get application info
+      uri:
+        url: "{{ lookup('env', 'ARTIFACT_REPO_URL') }}/api/v1/applications/{{ service_name }}/versions/{{ version }}"
+        method: GET
+        return_content: yes
+        status_code: 200
+        user: "{{ lookup('env', 'ARTIFACT_REPO_USER') }}"
+        password: "{{ lookup('env', 'ARTIFACT_REPO_PASSWORD') }}"
+      register: app_info
+      delegate_to: localhost
+      become: no
+      ignore_errors: yes
+
+    - name: Set application download URL
+      set_fact:
+        app_download_url: "{{ app_info.json.download_url | default('') }}"
+      when: app_info is defined and app_info.status == 200
+
+    - name: Fail if application info not found
+      fail:
+        msg: "Could not find application {{ service_name }} version {{ version }}"
+      when: app_download_url is not defined or app_download_url == ''
+
+  tasks:
+    - name: Create application directories
+      file:
+        path: "{{ item }}"
+        state: directory
+        owner: "{{ app_user }}"
+        group: "{{ app_group }}"
+        mode: 0755
+      loop:
+        - "{{ app_base_dir }}"
+        - "{{ app_config_dir }}"
+        - "{{ app_log_dir }}"
+        - "{{ app_data_dir }}"
+        - "{{ app_temp_dir }}"
+        - "{{ app_backup_dir }}"
+
+    - name: Backup current application
+      archive:
+        path: "{{ app_base_dir }}"
+        dest: "{{ app_backup_dir }}/{{ service_name }}_{{ ansible_date_time.iso8601_basic_short }}.tar.gz"
+        format: gz
+      ignore_errors: yes
+      when: ansible_path.exists(app_base_dir)
+
+    - name: Stop application service
+      systemd:
+        name: "{{ app_service_name }}"
+        state: stopped
+      ignore_errors: yes
+
+    - name: Download application artifact
+      get_url:
+        url: "{{ app_download_url }}"
+        dest: "{{ app_temp_dir }}/{{ service_name }}-{{ version }}.zip"
+        mode: 0644
+        owner: "{{ app_user }}"
+        group: "{{ app_group }}"
+        username: "{{ lookup('env', 'ARTIFACT_REPO_USER') }}"
+        password: "{{ lookup('env', 'ARTIFACT_REPO_PASSWORD') }}"
+
+    - name: Extract application artifact
+      unarchive:
+        src: "{{ app_temp_dir }}/{{ service_name }}-{{ version }}.zip"
+        dest: "{{ app_temp_dir }}"
+        remote_src: yes
+        owner: "{{ app_user }}"
+        group: "{{ app_group }}"
+
+    - name: Deploy application files
+      synchronize:
+        src: "{{ app_temp_dir }}/{{ service_name }}-{{ version }}/"
+        dest: "{{ app_base_dir }}/"
+        delete: yes
+        recursive: yes
+        owner: yes
+        group: yes
+
+    - name: Generate environment-specific configuration
+      template:
+        src: "templates/{{ service_name }}/{{ environment }}/application.yml.j2"
+        dest: "{{ app_config_dir }}/application.yml"
+        owner: "{{ app_user }}"
+        group: "{{ app_group }}"
+        mode: 0644
+      notify: restart application
+
+    - name: Update application service configuration
+      template:
+        src: "templates/{{ service_name }}/{{ service_name }}.service.j2"
+        dest: "/etc/systemd/system/{{ app_service_name }}.service"
+        owner: root
+        group: root
+        mode: 0644
+      notify: restart application
+
+    - name: Ensure application service is enabled
+      systemd:
+        name: "{{ app_service_name }}"
+        enabled: yes
+        daemon_reload: yes
+
+    - name: Start application service
+      systemd:
+        name: "{{ app_service_name }}"
+        state: started
+
+    - name: Wait for application to become available
+      uri:
+        url: "{{ health_check_url }}"
+        method: GET
+        status_code: 200
+        return_content: yes
+      register: health_check
+      until: health_check.status == 200
+      retries: "{{ health_check_retries }}"
+      delay: "{{ health_check_delay }}"
+
+    - name: Clean up temporary files
+      file:
+        path: "{{ app_temp_dir }}"
+        state: absent
+
+    - name: Rotate backups (keep last 5)
+      shell: |
+        ls -t {{ app_backup_dir }}/{{ service_name }}_*.tar.gz | tail -n +6 | xargs rm -f
+      args:
+        executable: /bin/bash
+      changed_when: false
+      ignore_errors: yes
+
+  handlers:
+    - name: restart application
+      systemd:
+        name: "{{ app_service_name }}"
+        state: restarted
+
+  post_tasks:
+    - name: Send deployment notification
+      uri:
+        url: "{{ lookup('env', 'NOTIFICATION_WEBHOOK_URL') }}"
+        method: POST
+        body_format: json
+        body: |
+          {
+            "text": "Deployed {{ service_name }} version {{ version }} to {{ environment }} environment",
+            "username": "Ansible Deployment",
+            "icon_emoji": ":rocket:"
+          }
+        status_code: 200
+      delegate_to: localhost
+      become: no
+      ignore_errors: yes
